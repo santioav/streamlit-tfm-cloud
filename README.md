@@ -5,46 +5,121 @@ Lee `s3://<bucket>/predictions/latest/prediction.json` y enriquece con
 precios live de Yahoo Finance para mostrar la performance de la cartera
 desde la fecha de predicción.
 
-## Ejecución local
+---
+
+## Cómo gestiona las credenciales
+
+`app.py` lee las credenciales de S3 en este orden:
+
+1. **`st.secrets[KEY]`** — primera prioridad. En Streamlit Community Cloud
+   se configuran desde la UI web (Settings → Secrets de la app).
+2. **Variables de entorno** — si no hay `st.secrets`, intenta `os.environ`.
+3. **Fichero `.env`** — si existe en la carpeta del proyecto, `python-dotenv`
+   lo carga al arranque para que esté disponible vía variables de entorno.
+
+**Ningún `secrets.toml` ni `.env` se sube al repo**. `.gitignore` los
+excluye. Esto significa que puedes hacer el repo público sin riesgo.
+
+---
+
+## Despliegue en Streamlit Community Cloud (recomendado)
+
+### Paso 1: Crear repo público
+
+Si el repo principal del TFM es privado, crea uno separado solo con la
+carpeta `dashboard/`:
+
+```bash
+mkdir tfm-dashboard
+cd tfm-dashboard
+# Copiar el contenido de dashboard/ aquí
+git init
+git add -A
+git commit -m "Initial commit"
+gh repo create tfm-dashboard --public --source=. --push
+```
+
+Verifica con `git status` que `secrets.toml` y `.env` NO aparecen entre
+los ficheros a commitear (gracias al `.gitignore`).
+
+### Paso 2: Crear la app en Streamlit Cloud
+
+1. Entra en https://share.streamlit.io y haz login con GitHub.
+2. Clic en **New app**.
+3. Configura:
+   - Repository: `<tu-usuario>/tfm-dashboard`
+   - Branch: `main`
+   - Main file path: `app.py`
+   - Python version: `3.11` (avanzado)
+
+### Paso 3: Configurar Secrets en la UI de Streamlit Cloud
+
+**Aquí está la clave**: los secrets NO se ponen en el repo. Se pegan en la
+UI web de Streamlit Cloud:
+
+1. En la página de tu app → **Settings → Secrets**.
+2. Pega este TOML (con tus valores reales):
+
+```toml
+S3_BUCKET             = "tfm-fred-miax"
+S3_PREFIX             = ""
+AWS_ACCESS_KEY_ID     = "AKIA..."
+AWS_SECRET_ACCESS_KEY = "..."
+AWS_DEFAULT_REGION    = "eu-west-1"
+```
+
+3. Guarda. La app reinicia automáticamente con los secrets activos.
+
+### Paso 4: URL pública
+
+A los 2-3 minutos tienes una URL del tipo:
+
+```
+https://<tu-app>.streamlit.app/
+```
+
+Cualquiera con el link puede acceder. La app refresca su contenido cada
+vez que se recarga la página (con cache TTL de 10 min para el JSON y
+60 min para los precios de Yahoo).
+
+---
+
+## Desarrollo local
 
 ```bash
 cd dashboard
 pip install -r requirements.txt
 
-# Configurar credenciales:
+# Opción 1: usar el .env del proyecto principal (recomendado)
+# El app.py detecta automáticamente C:\ruta\al\repo\.env
+
+# Opción 2: tener un secrets.toml local
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-# Editar .streamlit/secrets.toml con tus valores
+# Editar .streamlit/secrets.toml con valores reales
 
 streamlit run app.py
 ```
 
 Abre http://localhost:8501 en el navegador.
 
-## Despliegue en Streamlit Community Cloud (gratis)
+⚠️ **NUNCA** hagas commit del `secrets.toml` o del `.env`. El `.gitignore`
+los excluye, pero si los renombras o los pones en otra ruta, podrían
+quedar tracked sin querer.
 
-1. **Push del repo a GitHub** (puede ser un repo separado del de los workflows).
-2. En https://share.streamlit.io → **New app**.
-3. Apunta al repo y a `dashboard/app.py` como entry point.
-4. En **Advanced settings → Secrets**, pega el contenido de
-   `.streamlit/secrets.toml.example` rellenado con tus valores reales.
-5. Deploy. URL pública del tipo `https://<tu-app>.streamlit.app/`.
+---
 
 ## Qué muestra
 
-- **Estado de frescura**: marca la predicción como 🟢/🟡/🔴 según los días que
-  hayan pasado desde que se generó (<35 / 35-60 / >60).
-- **Régimen actual + régimen predicho**: cards de colores.
-- **Probabilidades del régimen siguiente**: bar chart con las 4 clases.
-- **Cartera asignada**: pie chart + tabla de pesos.
-- **Equity curve desde la predicción**: línea del portfolio combinado vs
-  benchmark SP500 (SPY buy & hold).
-- **Métricas live**: retorno total, vol anualizada, Sharpe, max drawdown.
-- **Tabla por activo**: rentabilidad individual desde la fecha de predicción.
+- **Cards de estado**: run tag, mes referencia, días desde generación,
+  badge de frescura 🟢/🟡/🔴 (<35 / 35-60 / >60 días).
+- **Régimen actual + régimen predicho**: cards de colores semánticos.
+- **Bar chart de probabilidades** del régimen siguiente (ensemble n=7 NN21).
+- **Pie chart de la cartera asignada** + tabla de pesos.
+- **Equity curve live** del portfolio TFM vs benchmark SP500 (SPY).
+- **Métricas**: retorno total, vol anualizada, Sharpe, max drawdown.
+- **Tabla por activo**: rentabilidad individual desde la predicción.
 
-## Mapping asset → ticker Yahoo (proxy)
-
-El modelo usa series sintéticas TR (yields convertidos a price index, LBMA
-para oro, etc.). Para el dashboard usamos ETFs proxy de cada asset class:
+## Mapping asset → ticker proxy (Yahoo Finance)
 
 | Asset modelo | Ticker Yahoo | Nota |
 |---|---|---|
@@ -58,18 +133,32 @@ para oro, etc.). Para el dashboard usamos ETFs proxy de cada asset class:
 | USD    | UUP  | Invesco DB US Dollar Bullish (proxy DXY) |
 | COPPER | CPER | US Copper Index Fund |
 
-Para el backtest oficial del TFM se usan los parquets en S3 (no estos ETFs).
+El backtest oficial del TFM usa los parquets sintéticos TR en S3, no estos
+ETFs. Aquí solo son para visualización en streaming.
 
-## Suggested next features (no implementadas todavía)
+---
 
-- **Histórico de predicciones**: leer `s3://<bucket>/predictions/YYYY-MM/`
-  para todas las fechas y construir un timeline de regímenes predichos.
-- **Cumulative equity vs realized**: cada mes, calcular el retorno
-  realizado de esa cartera y acumular en una serie histórica.
-- **Sharpe rolling 12m** del backtest agregado.
-- **Comparativa cross-modelo** (TFM portfolio vs NN18 vs equal-weight vs
-  60/40 buy-and-hold).
-- **Mini timeline de regímenes históricos** desde `regime_labels_final.parquet`.
-- **Alertas** (badge rojo si el régimen predicho cambia respecto al mes
-  anterior, o si la cobertura cae bajo umbral).
-- **Export PDF/PNG** del dashboard para reportes mensuales offline.
+## Permisos AWS mínimos requeridos
+
+Para que la app pueda leer la predicción, el usuario IAM cuya access key
+metas en los secrets necesita al menos:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::tfm-fred-miax",
+        "arn:aws:s3:::tfm-fred-miax/predictions/*"
+      ]
+    }
+  ]
+}
+```
+
+**Buena práctica**: crea un usuario IAM dedicado al dashboard, con esos
+permisos read-only sobre `predictions/`. Si esas claves se filtran, el
+atacante solo puede leer las predicciones (no modificar tu bucket).
