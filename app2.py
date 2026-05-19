@@ -145,27 +145,6 @@ def regime_card(title: str, name: str, badge_color: str = "#4a90e2") -> str:
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
-st.sidebar.title("⚙️ Configuración")
-
-s3_bucket = _get_secret("S3_BUCKET")
-if not s3_bucket:
-    s3_bucket = st.sidebar.text_input("S3 Bucket", placeholder="mi-bucket-tfm")
-    if not s3_bucket:
-        st.warning("Configura `S3_BUCKET` en secrets o introdúcelo en el sidebar.")
-        st.stop()
-
-s3_prefix = _get_secret("S3_PREFIX", "")
-if s3_prefix:
-    prediction_key = f"{s3_prefix.rstrip('/')}/predictions/latest/prediction.json"
-else:
-    prediction_key = "predictions/latest/prediction.json"
-
-st.sidebar.markdown(f"**Bucket**: `{s3_bucket}`")
-st.sidebar.markdown(f"**Key**: `{prediction_key}`")
-
-if st.sidebar.button("🔄 Refrescar datos", use_container_width=True):
-    st.cache_data.clear()
-    st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +167,7 @@ input_month = pd.Timestamp(prediction["input_month"])
 generated_at = pd.Timestamp(prediction["generated_at"])
 age_days = (datetime.now(timezone.utc) - generated_at.to_pydatetime()).days
 
-freshness = "🟢 Fresca" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
+freshness = "🟢 Reciente" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Run tag", prediction["run_tag"])
@@ -259,14 +238,6 @@ with c2:
     w_display["Peso"] = w_display["Peso"].apply(lambda x: f"{x:.1%}")
     st.dataframe(w_display, hide_index=True, use_container_width=True)
 
-    st.caption(
-        f"🏦 **RF winner momentum 12m**: `{prediction['rf_winner']}` "
-        f"(recibe el {prediction['metadata']['rf_weight']:.0%} fijo del portfolio)"
-    )
-    st.caption(
-        f"⚖️ Configuración: lookup table `{prediction['metadata']['lookup_variant']}`, "
-        f"ensemble n={prediction['metadata']['n_ensemble']}, "
-        f"train hasta {prediction['metadata']['train_end']}"
-    )
+    
 
 st.markdown("---")
