@@ -188,7 +188,7 @@ input_month = pd.Timestamp(prediction["input_month"])
 generated_at = pd.Timestamp(prediction["generated_at"])
 age_days = (datetime.now(timezone.utc) - generated_at.to_pydatetime()).days
 
-freshness = "🟢 Fresca" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
+freshness = "🟢 Reciente" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Run tag", prediction["run_tag"])
