@@ -145,11 +145,27 @@ def regime_card(title: str, name: str, badge_color: str = "#4a90e2") -> str:
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
-
+st.sidebar.title("⚙️ Configuración")
 
 s3_bucket = _get_secret("S3_BUCKET")
+if not s3_bucket:
+    s3_bucket = st.sidebar.text_input("S3 Bucket", placeholder="mi-bucket-tfm")
+    if not s3_bucket:
+        st.warning("Configura `S3_BUCKET` en secrets o introdúcelo en el sidebar.")
+        st.stop()
 
 s3_prefix = _get_secret("S3_PREFIX", "")
+if s3_prefix:
+    prediction_key = f"{s3_prefix.rstrip('/')}/predictions/latest/prediction.json"
+else:
+    prediction_key = "predictions/latest/prediction.json"
+
+st.sidebar.markdown(f"**Bucket**: `{s3_bucket}`")
+st.sidebar.markdown(f"**Key**: `{prediction_key}`")
+
+if st.sidebar.button("🔄 Refrescar datos", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
 
 
 # ---------------------------------------------------------------------------
