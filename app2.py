@@ -147,6 +147,11 @@ def regime_card(title: str, name: str, badge_color: str = "#4a90e2") -> str:
 # ---------------------------------------------------------------------------
 
 
+s3_bucket = _get_secret("S3_BUCKET")
+
+s3_prefix = _get_secret("S3_PREFIX", "")
+
+
 # ---------------------------------------------------------------------------
 # Carga prediction
 # ---------------------------------------------------------------------------
@@ -167,7 +172,7 @@ input_month = pd.Timestamp(prediction["input_month"])
 generated_at = pd.Timestamp(prediction["generated_at"])
 age_days = (datetime.now(timezone.utc) - generated_at.to_pydatetime()).days
 
-freshness = "🟢 Reciente" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
+freshness = "🟢 Fresca" if age_days < 35 else "🟡 Atención" if age_days < 60 else "🔴 Obsoleta"
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Run tag", prediction["run_tag"])
@@ -238,6 +243,14 @@ with c2:
     w_display["Peso"] = w_display["Peso"].apply(lambda x: f"{x:.1%}")
     st.dataframe(w_display, hide_index=True, use_container_width=True)
 
-    
+    st.caption(
+        f"🏦 **RF winner momentum 12m**: `{prediction['rf_winner']}` "
+        f"(recibe el {prediction['metadata']['rf_weight']:.0%} fijo del portfolio)"
+    )
+    st.caption(
+        f"⚖️ Configuración: lookup table `{prediction['metadata']['lookup_variant']}`, "
+        f"ensemble n={prediction['metadata']['n_ensemble']}, "
+        f"train hasta {prediction['metadata']['train_end']}"
+    )
 
 st.markdown("---")
