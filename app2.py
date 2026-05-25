@@ -184,7 +184,7 @@ except Exception as exc:
 # ---------------------------------------------------------------------------
 st.title("📊 TFM Investment Clock — Dashboard")
 
-input_month = pd.Timestamp(prediction["input_month"])
+input_month = pd.Timestamp(prediction["input_month"]) + pd.DateOffset(months=1)
 generated_at = pd.Timestamp(prediction["generated_at"])
 age_days = (datetime.now(timezone.utc) - generated_at.to_pydatetime()).days
 
